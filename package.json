@@ -1,0 +1,31 @@
+{
+  "name": "ocean-crystal-quest",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "qa:language": "node scripts/language-qa.mjs",
+    "qa:onboarding": "node scripts/onboarding-qa.mjs",
+    "qa:difficulty": "node scripts/difficulty-physics-qa.mjs",
+    "qa:cascade": "node scripts/cascade-toad-qa.mjs",
+    "qa:golden": "node scripts/golden-audio-layout-qa.mjs",
+    "qa:music-speed-frog": "node scripts/music-speed-frog-qa.mjs",
+    "qa:payment-music-special": "node scripts/payment-music-special-qa.mjs",
+    "qa:user-feedback": "node scripts/user-feedback-qa.mjs",
+    "qa:no-timer-visual-physics": "node scripts/no-timer-visual-physics-qa.mjs",
+    "qa:shot-audio-visual": "node scripts/shot-audio-visual-qa.mjs",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "5.0.4",
+    "lucide-react": "^1.17.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "vite": "6.4.2"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
+}

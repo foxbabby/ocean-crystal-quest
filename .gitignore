@@ -1,0 +1,8 @@
+node_modules/
+dist/
+output/
+.npm-cache/
+.DS_Store
+.npmrc
+web_game_playwright_client.js
+
