@@ -24,10 +24,10 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import sceneSelectImage from "./assets/reference/scene-select-desktop.png";
-import crystalPalaceImage from "./assets/reference/crystal-palace-preview.png";
-import abyssalRelicImage from "./assets/reference/abyssal-relic-preview.png";
-import neonCoralImage from "./assets/reference/neon-coral-preview.png";
+import sceneSelectImage from "./assets/optimized/scene-select.webp";
+import crystalPalaceImage from "./assets/optimized/crystal-palace-preview.webp";
+import abyssalRelicImage from "./assets/optimized/abyssal-relic-preview.webp";
+import neonCoralImage from "./assets/optimized/neon-coral-preview.webp";
 
 const NO_TIME_LIMIT = true;
 const PEARL_SIGHT_SCORE_BONUS = 0.05;
@@ -35,6 +35,9 @@ const PROJECTILE_SPEED = 1600;
 const MUSIC_VOLUME = 0.88;
 const SFX_AUDIBLE_LEVEL = 1.24;
 const SFX_GAIN_LEVEL = 1.18;
+
+const assetPath = (path) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, "")}`;
+const PAYMENT_QR_SRC = assetPath("payment/wechat-pay.jpg");
 
 const SCENES = [
   {
@@ -364,7 +367,9 @@ const MUSIC_TRACKS = [
     zh: "浅海轻波",
     en: "Ocean Light",
     mood: "bright-aquatic",
-    audioPath: "/audio/ocean-light.wav",
+    audioPath: assetPath("audio/mobile/ocean-light.mp3"),
+    format: "mp3",
+    mobileOptimized: true,
     source: "downloaded",
     credit: "Aquaria - OpenGameArt CC0",
   },
@@ -374,7 +379,9 @@ const MUSIC_TRACKS = [
     zh: "秘境轻梦",
     en: "Mystic Light",
     mood: "mysterious-calm",
-    audioPath: "/audio/mystic-light.ogg",
+    audioPath: assetPath("audio/mobile/mystic-light.mp3"),
+    format: "mp3",
+    mobileOptimized: true,
     source: "downloaded",
     credit: "Heavenly Loop - OpenGameArt CC0",
   },
@@ -384,7 +391,9 @@ const MUSIC_TRACKS = [
     zh: "珊瑚竖琴",
     en: "Coral Harp",
     mood: "soft-energy",
-    audioPath: "/audio/coral-light.ogg",
+    audioPath: assetPath("audio/mobile/coral-light.mp3"),
+    format: "mp3",
+    mobileOptimized: true,
     source: "downloaded",
     credit: "Heaven Theme Loop - OpenGameArt CC0",
   },
@@ -1108,6 +1117,9 @@ function createGameAudio() {
     musicEnabled: true,
     sfxEnabled: true,
     started: false,
+    musicPlaybackState: "idle",
+    lastMusicPlayError: null,
+    resolvedMusicSrc: null,
     lastRollAt: 0,
     events: [],
     eventCounts: {},
@@ -1122,6 +1134,11 @@ function createGameAudio() {
       audibleLevel: 0.88,
       usesDownloadedAudio: true,
       audioPath: MUSIC_TRACKS[0].audioPath,
+      resolvedAudioPath: null,
+      format: MUSIC_TRACKS[0].format,
+      mobileOptimized: MUSIC_TRACKS[0].mobileOptimized,
+      playbackState: "idle",
+      lastPlayError: null,
       source: "downloaded",
       enabled: true,
     },
@@ -1132,7 +1149,10 @@ function createGameAudio() {
       if (this.sfxGain) this.sfxGain.gain.value = this.sfxEnabled ? SFX_GAIN_LEVEL : 0;
       if (this.musicElement) {
         this.musicElement.volume = this.musicEnabled ? MUSIC_VOLUME : 0;
-        if (!this.musicEnabled) this.musicElement.pause();
+        if (!this.musicEnabled) {
+          this.musicElement.pause();
+          this.musicPlaybackState = "paused";
+        }
       }
     },
     ensure() {
@@ -1160,9 +1180,14 @@ function createGameAudio() {
         this.musicElement = new Audio();
         this.musicElement.loop = true;
         this.musicElement.preload = "auto";
+        this.musicElement.crossOrigin = "anonymous";
         this.musicElement.volume = this.musicEnabled ? MUSIC_VOLUME : 0;
       }
       return this.musicElement;
+    },
+    resolveAudioPath(path) {
+      if (typeof window === "undefined") return path;
+      return new URL(path, window.location.href).href;
     },
     log(type) {
       this.eventCounts[type] = (this.eventCounts[type] || 0) + 1;
@@ -1205,6 +1230,9 @@ function createGameAudio() {
         selectedTrack: nextTrack,
         mood: getMusicTrack(nextTrack).mood,
         audioPath: getMusicTrack(nextTrack).audioPath,
+        resolvedAudioPath: this.resolveAudioPath(getMusicTrack(nextTrack).audioPath),
+        format: getMusicTrack(nextTrack).format,
+        mobileOptimized: getMusicTrack(nextTrack).mobileOptimized,
       };
       this.stopMusic();
     },
@@ -1227,9 +1255,11 @@ function createGameAudio() {
       const ctx = this.ensure();
       if (!ctx) return;
       const track = getMusicTrack(trackId);
+      const resolvedAudioPath = this.resolveAudioPath(track.audioPath);
       if (this.currentSceneId !== scene.id || this.currentTrackId !== track.id) this.stopMusic();
       this.currentSceneId = scene.id;
       this.currentTrackId = track.id;
+      this.resolvedMusicSrc = resolvedAudioPath;
       this.musicProfile = {
         mood: track.mood,
         lowRumble: false,
@@ -1241,6 +1271,11 @@ function createGameAudio() {
         audibleLevel: this.musicEnabled ? MUSIC_VOLUME : 0,
         usesDownloadedAudio: true,
         audioPath: track.audioPath,
+        resolvedAudioPath,
+        format: track.format,
+        mobileOptimized: track.mobileOptimized,
+        playbackState: this.musicPlaybackState,
+        lastPlayError: this.lastMusicPlayError,
         source: track.source,
         credit: track.credit,
         enabled: this.musicEnabled,
@@ -1251,14 +1286,30 @@ function createGameAudio() {
         return;
       }
       const element = this.ensureMusicElement();
-      if (!element.src.endsWith(track.audioPath)) {
-        element.src = track.audioPath;
+      if (element.src !== resolvedAudioPath) {
+        element.src = resolvedAudioPath;
         element.load();
       }
       element.loop = true;
       element.volume = MUSIC_VOLUME;
-      element.play().catch(() => {});
       this.started = true;
+      this.musicPlaybackState = "starting";
+      this.lastMusicPlayError = null;
+      const playResult = element.play();
+      if (playResult?.then) {
+        playResult
+          .then(() => {
+            this.musicPlaybackState = "playing";
+            this.lastMusicPlayError = null;
+          })
+          .catch((error) => {
+            this.musicPlaybackState = "blocked";
+            this.lastMusicPlayError = error?.name || error?.message || "playback-error";
+            this.log("music-blocked");
+          });
+      } else {
+        this.musicPlaybackState = "playing";
+      }
       if (!this.pulseTimer) {
         this.playMusicPhrase(scene, track);
         this.pulseTimer = window.setInterval(() => {
@@ -1275,6 +1326,7 @@ function createGameAudio() {
       if (this.musicElement) {
         this.musicElement.pause();
       }
+      this.musicPlaybackState = this.musicEnabled ? "paused" : "idle";
       if (this.chordTimer) {
         window.clearInterval(this.chordTimer);
         this.chordTimer = null;
@@ -1401,7 +1453,14 @@ function createGameAudio() {
         },
         started: this.started,
         scene: this.currentSceneId,
-        musicProfile: { ...this.musicProfile, enabled: this.musicEnabled, audibleLevel: this.musicEnabled ? MUSIC_VOLUME : 0 },
+        musicProfile: {
+          ...this.musicProfile,
+          enabled: this.musicEnabled,
+          audibleLevel: this.musicEnabled ? MUSIC_VOLUME : 0,
+          playbackState: this.musicPlaybackState,
+          lastPlayError: this.lastMusicPlayError,
+          resolvedAudioPath: this.resolvedMusicSrc || this.musicProfile.resolvedAudioPath,
+        },
         sfxProfile: {
           enabled: this.sfxEnabled,
           audibleLevel: this.sfxEnabled ? SFX_AUDIBLE_LEVEL : 0,
@@ -3310,7 +3369,15 @@ function SceneCard({ scene, selected, onSelect, stats, language }) {
       aria-pressed={selected}
     >
       <span className="scene-frame">
-        <img src={scene.image} alt={`${sceneText(scene, language)} gameplay preview`} />
+        <img
+          src={scene.image}
+          alt={`${sceneText(scene, language)} gameplay preview`}
+          width="720"
+          height="520"
+          loading={selected ? "eager" : "lazy"}
+          fetchPriority={selected ? "high" : "low"}
+          decoding="async"
+        />
         <span className="scene-glow" />
         <span className="scene-number">{scene.index}</span>
         {locked ? (
@@ -3650,7 +3717,7 @@ function SelectPanel({
                 <p>{tr(language, "scanPayHelp")}</p>
                 <small>{tr(language, "paymentManualNote")}</small>
               </div>
-              <img src="/payment/wechat-pay.jpg" alt="微信收款二维码" />
+              <img src={PAYMENT_QR_SRC} alt="微信收款二维码" />
               <div className="payment-actions">
                 <button className="panel-action-button" type="button" onClick={onCancelPayment}>
                   {tr(language, "cancel")}

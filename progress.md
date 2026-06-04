@@ -159,3 +159,21 @@ Original prompt: 类似祖玛的海底水晶游戏；本轮继续补付费购买
 **Latest Evidence**
 
 - Faster-shot gameplay screenshot: `output/web-game-faster-shot/shot-2.png`
+
+**2026-06-04 Mobile Media Optimization**
+
+- Root cause found for slow mobile scene loading: scene cards and select background used multiple 1.6MB-2.1MB PNG images on first load.
+- Root cause found for missing GitHub Pages background music: public audio paths used root `/audio/...` URLs, which break under the `/ocean-crystal-quest/` Pages subpath; the default music was also a 7.4MB WAV and other tracks were OGG, which is weaker for mobile browser compatibility.
+- Generated lightweight WebP scene assets in `src/assets/optimized` and changed scene select/card images to use them with lazy/async image loading.
+- Generated mobile MP3 music files in `public/audio/mobile` and changed music tracks to use `BASE_URL`-aware relative paths so GitHub Pages and local dev both resolve correctly.
+- Added audio playback state/error metadata to `render_game_to_text`.
+- Added `scripts/mobile-media-qa.mjs` and `npm run qa:mobile-media` to cover mobile image formats, old PNG avoidance, MP3 music URL loading, and playback error state.
+
+**Latest Verification**
+
+- `npm run build` passed; production output scene images are WebP at about 96KB-143KB.
+- `npm run qa:mobile-media` passed; mobile viewport loaded optimized WebP images, avoided old PNG preview assets, fetched `audio/mobile/ocean-light.mp3` as `audio/mpeg`, and reported no playback error.
+- `npm run qa:payment-music-special` passed.
+- `npm run qa:shot-audio-visual` passed.
+- `web_game_playwright_client.js` passed three gameplay iterations with `--preserve-symlinks --preserve-symlinks-main`; `state-2.json` showed music `playbackState: "playing"` and `format: "mp3"`.
+- In-app Browser plugin initialization timed out twice during verification; Playwright browser verification covered the same local URL.

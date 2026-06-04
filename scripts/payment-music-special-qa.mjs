@@ -88,6 +88,9 @@ try {
   if (!initial.audio.musicProfile?.audioPath?.includes("/audio/")) {
     await fail(`music profile should expose audio file path: ${JSON.stringify(initial.audio.musicProfile)}`);
   }
+  if (initial.audio.musicProfile?.format !== "mp3" || !initial.audio.musicProfile?.mobileOptimized) {
+    await fail(`music should expose mobile mp3 metadata: ${JSON.stringify(initial.audio.musicProfile)}`);
+  }
   if (!initial.difficulty?.currentSpeed || !initial.difficulty?.speedLabel) {
     await fail(`game state should expose current speed display data: ${JSON.stringify(initial.difficulty)}`);
   }
