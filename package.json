@@ -17,6 +17,7 @@
     "qa:no-timer-visual-physics": "node scripts/no-timer-visual-physics-qa.mjs",
     "qa:shot-audio-visual": "node scripts/shot-audio-visual-qa.mjs",
     "qa:mobile-media": "node scripts/mobile-media-qa.mjs",
+    "qa:insertion-rolling": "node scripts/insertion-rolling-qa.mjs",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {

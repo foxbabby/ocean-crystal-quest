@@ -64,12 +64,35 @@ if (afterPowerups.mode !== "playing" || afterPowerups.progress.remainingOrbs <= 
   throw new Error(`level completed before all marbles cleared: ${JSON.stringify(afterPowerups.progress)}`);
 }
 
-const target = afterPowerups.chain.visible[Math.min(2, afterPowerups.chain.visible.length - 1)];
+let target = null;
+let shotColor = null;
+for (let i = 1; i < afterPowerups.chain.visible.length - 2; i += 1) {
+  const left = afterPowerups.chain.visible[i];
+  const right = afterPowerups.chain.visible[i + 1];
+  for (let colorIndex = 0; colorIndex < 6; colorIndex += 1) {
+    if (colorIndex !== left.colorIndex && colorIndex !== right.colorIndex) {
+      target = left;
+      shotColor = colorIndex;
+      break;
+    }
+  }
+  if (target) break;
+}
+if (!target || shotColor == null) throw new Error(`could not find safe insertion target: ${JSON.stringify(afterPowerups.chain.visible)}`);
+await page.evaluate((colorIndex) => window.debugSetCurrentColor?.(colorIndex), shotColor);
+const beforeOrdinaryShot = await state("before-ordinary-shot");
 await clickCanvasAtGamePoint(target);
 await step(900);
 const afterImpact = await state("after-impact");
-if (afterImpact.physics.impactCount < 1 || afterImpact.physics.lastImpactKnockback <= 0) {
-  throw new Error(`missing physical collision recoil: ${JSON.stringify(afterImpact.physics)}`);
+if (afterImpact.physics.impactCount < 1 || afterImpact.physics.lastInsertionPush <= 0 || afterImpact.physics.lastImpactDirection !== "forward") {
+  throw new Error(`missing forward insertion collision response: ${JSON.stringify(afterImpact.physics)}`);
+}
+if (
+  afterImpact.physics.lastImpactKnockback !== 0 ||
+  afterImpact.physics.collisionRecoil !== 0 ||
+  afterImpact.chainPhysics.totalBackwardPush !== beforeOrdinaryShot.chainPhysics.totalBackwardPush
+) {
+  throw new Error(`ordinary shot collision should not push the chain backward: ${JSON.stringify({ physics: afterImpact.physics, chainPhysics: afterImpact.chainPhysics })}`);
 }
 
 const beforeSpeed = afterImpact.difficulty.speedMultiplier;
@@ -109,4 +132,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(JSON.stringify({ result: "passed", impactKnockback: afterImpact.physics.lastImpactKnockback, lateLevel: lateLevel.difficulty }, null, 2));
+console.log(JSON.stringify({ result: "passed", insertionPush: afterImpact.physics.lastInsertionPush, lateLevel: lateLevel.difficulty }, null, 2));

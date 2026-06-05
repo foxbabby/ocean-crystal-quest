@@ -177,3 +177,31 @@ Original prompt: 类似祖玛的海底水晶游戏；本轮继续补付费购买
 - `npm run qa:shot-audio-visual` passed.
 - `web_game_playwright_client.js` passed three gameplay iterations with `--preserve-symlinks --preserve-symlinks-main`; `state-2.json` showed music `playbackState: "playing"` and `format: "mp3"`.
 - In-app Browser plugin initialization timed out twice during verification; Playwright browser verification covered the same local URL.
+
+**2026-06-05 Insertion Physics, Speed, Rolling Textures**
+
+- Root cause found for ordinary-shot backward movement: normal projectile insertion called `applyCollisionRecoil()`, which added `collisionRecoil` and `totalBackwardPush` for every ordinary hit.
+- Changed ordinary projectile insertion to `applyInsertionForwardPush()`: it records a hit, plays hit effects, inserts the fired marble, pushes the chain forward, and leaves backward recoil at `0`.
+- Preserved backward push behavior for explosion rollback/reconnect cascades, so middle explosions can still create the requested chain retreat.
+- Increased chain pace by adding `CHAIN_SPEED_BOOST = 1.24` and `ACCELERATION_BOOST = 1.18`.
+- Removed the in-game fire text prompt overlay.
+- Added stable rolling crystal textures to marbles. Each marble has a texture variant and roll value based on path offset so texture orientation changes while the chain moves.
+- Added `scripts/insertion-rolling-qa.mjs` and `npm run qa:insertion-rolling`.
+
+**Latest Verification**
+
+- `npm run build` passed.
+- `npm run qa:insertion-rolling` passed; ordinary insertion added one marble, pushed forward, kept `totalBackwardPush` at `0`, removed `.tap-hint`, and observed changing roll values.
+- `npm run qa:difficulty` passed; late level `neon-4` current speed was `44`, acceleration rate `0.09204`.
+- `npm run qa:shot-audio-visual` passed.
+- `npm run qa:no-timer-visual-physics` passed.
+- `npm run qa:user-feedback` passed.
+- `npm run qa:language` passed.
+- `node scripts/color-stability-check.mjs` passed.
+- `node scripts/game-flow-qa.mjs` passed.
+- `web_game_playwright_client.js` passed three gameplay iterations against `http://127.0.0.1:5173/`.
+
+**Latest Evidence**
+
+- Textured insertion screenshot: `output/insertion-rolling/rolling-textured-insert.png`
+- General gameplay screenshot: `output/web-game-insertion-rolling/shot-2.png`

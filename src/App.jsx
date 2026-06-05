@@ -32,6 +32,8 @@ import neonCoralImage from "./assets/optimized/neon-coral-preview.webp";
 const NO_TIME_LIMIT = true;
 const PEARL_SIGHT_SCORE_BONUS = 0.05;
 const PROJECTILE_SPEED = 1600;
+const CHAIN_SPEED_BOOST = 1.24;
+const ACCELERATION_BOOST = 1.18;
 const MUSIC_VOLUME = 0.88;
 const SFX_AUDIBLE_LEVEL = 1.24;
 const SFX_GAIN_LEVEL = 1.18;
@@ -409,6 +411,8 @@ const VISUAL_PROFILE = {
   marbleMaterial: "translucent-crystal",
   marbleDimension: "3d-sphere",
   lightingModel: "layered-specular",
+  surfaceTextures: "rolling-crystal-patterns",
+  rollingTexture: true,
   depthCues: ["cast-shadow", "rim-light", "inner-refraction", "specular-highlights"],
   portalLabels: false,
   exitStyle: "dark-hole",
@@ -1508,6 +1512,19 @@ function makeSeededRandom(seedText) {
   };
 }
 
+function hashText(text) {
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash >>> 0;
+}
+
+function ballTextureVariant(id, colorIndex = 0) {
+  return (hashText(`${id}-${colorIndex}`) + colorIndex * 3) % 5;
+}
+
 function colorWithAlpha(hex, alpha) {
   const raw = hex.replace("#", "");
   const value = parseInt(raw, 16);
@@ -1730,7 +1747,8 @@ function createInitialChain(scene, count, seedSuffix = "") {
     if (i > 1 && chain[i - 1].colorIndex === color && chain[i - 2].colorIndex === color) {
       color = (color + 1 + Math.floor(random() * (scene.colors.length - 1))) % scene.colors.length;
     }
-    chain.push({ id: `${scene.id}-seed-${i}`, colorIndex: color });
+    const id = `${scene.id}-seed-${i}`;
+    chain.push({ id, colorIndex: color, textureVariant: ballTextureVariant(id, color) });
   }
   return chain;
 }
@@ -1901,7 +1919,107 @@ function drawTrack(ctx, path, scene, radius) {
   ctx.restore();
 }
 
-function drawBall(ctx, x, y, r, color, scene, shine = 1) {
+function drawBallTexture(ctx, x, y, r, color, scene, roll = 0, textureVariant = 0, shine = 1) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.94, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.translate(x, y);
+  ctx.rotate(roll);
+
+  const bright = scene.id === "neon" ? scene.palette.hot : scene.palette.bright;
+  const variants = Math.max(0, textureVariant) % 5;
+  ctx.globalCompositeOperation = "screen";
+  ctx.lineCap = "round";
+
+  if (variants === 0) {
+    ctx.strokeStyle = colorWithAlpha("#ffffff", 0.22 * shine);
+    ctx.lineWidth = Math.max(1, r * 0.075);
+    for (let yOffset = -r * 0.58; yOffset <= r * 0.7; yOffset += r * 0.34) {
+      const width = r * (0.82 - Math.abs(yOffset) / r * 0.24);
+      ctx.beginPath();
+      ctx.ellipse(0, yOffset, width, r * 0.13, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = colorWithAlpha(bright, 0.18 * shine);
+    ctx.lineWidth = Math.max(1, r * 0.045);
+    for (let xOffset = -r * 0.45; xOffset <= r * 0.5; xOffset += r * 0.32) {
+      ctx.beginPath();
+      ctx.moveTo(xOffset, -r * 0.76);
+      ctx.quadraticCurveTo(xOffset + r * 0.28, 0, xOffset - r * 0.08, r * 0.76);
+      ctx.stroke();
+    }
+  } else if (variants === 1) {
+    ctx.strokeStyle = colorWithAlpha("#ffffff", 0.2 * shine);
+    ctx.lineWidth = Math.max(1, r * 0.11);
+    for (let i = -3; i <= 3; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(-r * 1.1, i * r * 0.34);
+      ctx.lineTo(r * 1.1, i * r * 0.34 - r * 0.62);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = colorWithAlpha(color, 0.36 * shine);
+    ctx.lineWidth = Math.max(1, r * 0.055);
+    for (let i = -2; i <= 3; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(-r, i * r * 0.38 + r * 0.2);
+      ctx.lineTo(r, i * r * 0.38 - r * 0.32);
+      ctx.stroke();
+    }
+  } else if (variants === 2) {
+    ctx.fillStyle = colorWithAlpha("#ffffff", 0.26 * shine);
+    for (let i = 0; i < 9; i += 1) {
+      const angle = i * 1.73;
+      const dist = r * (0.18 + ((i * 37) % 52) / 100);
+      ctx.beginPath();
+      ctx.arc(Math.cos(angle) * dist, Math.sin(angle) * dist, r * (0.045 + (i % 3) * 0.012), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = colorWithAlpha(bright, 0.22 * shine);
+    ctx.lineWidth = Math.max(1, r * 0.05);
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.58, -0.2, Math.PI * 1.45);
+    ctx.stroke();
+  } else if (variants === 3) {
+    ctx.strokeStyle = colorWithAlpha("#ffffff", 0.24 * shine);
+    ctx.lineWidth = Math.max(1, r * 0.055);
+    for (let i = 0; i < 5; i += 1) {
+      const angle = i * (Math.PI * 2) / 5 + 0.3;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle) * r * 0.16, Math.sin(angle) * r * 0.16);
+      ctx.lineTo(Math.cos(angle + 0.18) * r * 0.78, Math.sin(angle + 0.18) * r * 0.78);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = colorWithAlpha(color, 0.26 * shine);
+    ctx.lineWidth = Math.max(1, r * 0.09);
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.42, Math.PI * 0.08, Math.PI * 1.55);
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = colorWithAlpha("#ffffff", 0.18 * shine);
+    ctx.lineWidth = Math.max(1, r * 0.07);
+    for (let i = -2; i <= 2; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(i * r * 0.28, -r * 0.82);
+      ctx.bezierCurveTo(i * r * 0.08 + r * 0.36, -r * 0.34, i * r * 0.12 - r * 0.28, r * 0.34, i * r * 0.26, r * 0.82);
+      ctx.stroke();
+    }
+    ctx.fillStyle = colorWithAlpha(bright, 0.16 * shine);
+    ctx.beginPath();
+    ctx.ellipse(r * 0.18, -r * 0.04, r * 0.5, r * 0.18, 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.globalCompositeOperation = "multiply";
+  ctx.strokeStyle = colorWithAlpha("#00131b", 0.22);
+  ctx.lineWidth = Math.max(1, r * 0.05);
+  ctx.beginPath();
+  ctx.arc(r * 0.12, r * 0.1, r * 0.66, Math.PI * 0.18, Math.PI * 1.06);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawBall(ctx, x, y, r, color, scene, shine = 1, roll = 0, textureVariant = 0) {
   ctx.save();
   ctx.globalAlpha = 0.32;
   ctx.fillStyle = "rgba(0, 4, 12, 0.76)";
@@ -1932,6 +2050,8 @@ function drawBall(ctx, x, y, r, color, scene, shine = 1) {
   ctx.beginPath();
   ctx.arc(x, y, r * 0.94, 0, Math.PI * 2);
   ctx.fill();
+
+  drawBallTexture(ctx, x, y, r, color, scene, roll, textureVariant, shine);
 
   ctx.strokeStyle = "rgba(255,255,255,0.55)";
   ctx.lineWidth = Math.max(1, r * 0.095);
@@ -2013,9 +2133,9 @@ function drawSpecialHalo(ctx, x, y, r, special, scene) {
   ctx.restore();
 }
 
-function drawShotBall(ctx, x, y, r, color, scene, special = null, shine = 1) {
+function drawShotBall(ctx, x, y, r, color, scene, special = null, shine = 1, roll = 0, textureVariant = 0) {
   drawSpecialHalo(ctx, x, y, r, special, scene);
-  drawBall(ctx, x, y, r, color, scene, special ? shine * 1.12 : shine);
+  drawBall(ctx, x, y, r, color, scene, special ? shine * 1.12 : shine, roll, textureVariant);
   if (!special) return;
   ctx.save();
   ctx.translate(x, y);
@@ -2319,7 +2439,7 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
   const upgradeSlow = 1 - (options.upgrades?.aquaCore || 0) * 0.08;
   const scoreBonusRate = (options.upgrades?.pearlSight || 0) * PEARL_SIGHT_SCORE_BONUS;
   const terrainPressure = 1 + Math.max(0, (level.entryCount || 1) + (level.exitCount || 1) - 2) * 0.045;
-  const baseSpeed = scene.speed * level.speedScale * upgradeSlow * terrainPressure;
+  const baseSpeed = scene.speed * level.speedScale * upgradeSlow * terrainPressure * CHAIN_SPEED_BOOST;
   const engine = {
     scene,
     level,
@@ -2335,7 +2455,7 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
     baseSpeed,
     speed: baseSpeed,
     speedMultiplier: 1,
-    accelerationRate: level.acceleration || 0.015,
+    accelerationRate: (level.acceleration || 0.015) * ACCELERATION_BOOST,
     score: 0,
     combo: 1,
     maxCombo: 1,
@@ -2361,16 +2481,20 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
     shockwaves: [],
     impactWaves: [],
     collisionRecoil: 0,
+    insertionForwardPush: 0,
     activeGap: null,
     cascadeImpulseCount: 0,
     joinImpactCount: 0,
     lastBlastPush: 0,
     lastJoinPush: 0,
     totalBackwardPush: 0,
+    totalForwardPush: 0,
     frontRollbackSpeed: 0,
     retreatToEntranceCount: 0,
     impactCount: 0,
     lastImpactKnockback: 0,
+    lastInsertionPush: 0,
+    lastImpactDirection: "none",
     explosionCount: 0,
     lastHud: 0,
     startedAt: performance.now() / 1000,
@@ -2416,6 +2540,14 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
       this.pushHud(true);
       this.render();
     },
+    forceCurrentColor(colorIndex) {
+      const nextColor = Number(colorIndex);
+      if (!Number.isFinite(nextColor)) return;
+      this.currentColor = clamp(Math.round(nextColor), 0, scene.colors.length - 1);
+      this.currentSpecial = null;
+      this.pushHud(true);
+      this.render();
+    },
     currentShotPayload() {
       return {
         colorIndex: this.currentColor,
@@ -2424,7 +2556,8 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
       };
     },
     makeShotBall(colorIndex) {
-      const ball = { id: `${scene.id}-shot-${this.nextShotId}`, colorIndex };
+      const id = `${scene.id}-shot-${this.nextShotId}`;
+      const ball = { id, colorIndex, textureVariant: ballTextureVariant(id, colorIndex) };
       this.nextShotId += 1;
       return ball;
     },
@@ -2462,16 +2595,20 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
       this.shockwaves = [];
       this.impactWaves = [];
       this.collisionRecoil = 0;
+      this.insertionForwardPush = 0;
       this.activeGap = null;
       this.cascadeImpulseCount = 0;
       this.joinImpactCount = 0;
       this.lastBlastPush = 0;
       this.lastJoinPush = 0;
       this.totalBackwardPush = 0;
+      this.totalForwardPush = 0;
       this.frontRollbackSpeed = 0;
       this.retreatToEntranceCount = 0;
       this.impactCount = 0;
       this.lastImpactKnockback = 0;
+      this.lastInsertionPush = 0;
+      this.lastImpactDirection = "none";
       this.explosionCount = 0;
       if (options.musicTrack) gameAudio.setTrack(options.musicTrack);
       gameAudio.startMusic(scene, options.musicTrack);
@@ -2760,6 +2897,30 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
         });
       }
     },
+    applyInsertionForwardPush(index, point, projectile) {
+      const incomingSpeed = projectile ? Math.hypot(projectile.vx, projectile.vy) : PROJECTILE_SPEED;
+      const forwardPush = clamp(this.spacing * (0.82 + incomingSpeed / 5600), this.spacing * 0.78, this.spacing * 1.12);
+      const followThrough = clamp(this.ballRadius * (0.42 + incomingSpeed / 7600), this.ballRadius * 0.28, this.ballRadius * 0.74);
+      this.head = Math.min(this.path.total + this.spacing * 2, this.head + forwardPush);
+      this.insertionForwardPush = Math.max(this.insertionForwardPush, followThrough * 0.45) + followThrough * 0.55;
+      this.totalForwardPush += forwardPush + followThrough;
+      this.lastInsertionPush = forwardPush + followThrough;
+      this.lastImpactKnockback = 0;
+      this.lastImpactDirection = "forward";
+      this.impactCount += 1;
+      if (point) {
+        this.impactWaves.push({
+          x: point.x,
+          y: point.y,
+          color: projectile ? scene.colors[projectile.color] : scene.palette.accent,
+          life: 0,
+          max: 0.3,
+          index,
+          knockback: 0,
+          forwardPush,
+        });
+      }
+    },
     removeRainbowHit(ball) {
       if (!this.projectile || this.projectile.piercedIds?.[ball.id]) return;
       this.projectile.piercedIds[ball.id] = true;
@@ -2834,7 +2995,7 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
       if (hitPoint && this.projectile) {
         this.addSparkBurst(hitPoint.x, hitPoint.y, scene.colors[this.projectile.color], 12, 0.8);
       }
-      this.applyCollisionRecoil(nearestIndex, hitPoint, this.projectile);
+      this.applyInsertionForwardPush(nearestIndex, hitPoint, this.projectile);
       gameAudio.hit(scene);
       this.chain.splice(insertIndex, 0, this.makeShotBall(this.projectile.color));
       this.projectile = null;
@@ -2912,6 +3073,11 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
           this.head = Math.max(0, this.head - recoilStep);
           if (this.head <= this.spacing * 0.35 && recoilStep > 0) this.retreatToEntranceCount += 1;
           this.collisionRecoil = Math.max(0, this.collisionRecoil - recoilStep * 1.45);
+        }
+        if (this.insertionForwardPush > 0) {
+          const insertStep = Math.min(this.insertionForwardPush, (this.baseSpeed * 3.2 + this.ballRadius * 20) * dt);
+          this.head = Math.min(this.path.total + this.spacing * 2, this.head + insertStep);
+          this.insertionForwardPush = Math.max(0, this.insertionForwardPush - insertStep * 1.55);
         }
         this.updateGapReturn(dt);
         if (this.frontBallGateState().eaten) this.finish("danger", "gate");
@@ -3130,10 +3296,14 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
           this.ballRadius,
           scene.colors[ball.colorIndex],
           scene,
+          1,
+          ball.offset / Math.max(1, this.ballRadius * 1.8) + ball.colorIndex * 0.42,
+          ball.textureVariant ?? ballTextureVariant(ball.id, ball.colorIndex),
         );
       }
 
       if (this.projectile) {
+        const projectileRoll = (this.projectile.x + this.projectile.y) / Math.max(1, this.ballRadius * 2.2);
         drawShotBall(
           ctx,
           this.projectile.x,
@@ -3142,6 +3312,9 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
           this.projectile.special ? SPECIAL_MARBLES[this.projectile.special].color : scene.colors[this.projectile.color],
           scene,
           this.projectile.special,
+          1,
+          projectileRoll,
+          ballTextureVariant(`${scene.id}-projectile-${this.projectile.color}`, this.projectile.color),
         );
       }
       this.drawExplosionEffects();
@@ -3178,15 +3351,19 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
         explosionCount: this.explosionCount,
         impactCount: this.impactCount,
         lastImpactKnockback: Math.round(this.lastImpactKnockback),
+        lastInsertionPush: Math.round(this.lastInsertionPush),
+        lastImpactDirection: this.lastImpactDirection,
         chainPhysics: {
           activeGap: Boolean(this.activeGap),
           gapDistance: Math.round(this.activeGap?.gapDistance || 0),
           frontRollbackSpeed: Math.round(this.frontRollbackSpeed),
+          insertionForwardPush: Math.round(this.insertionForwardPush),
           cascadeImpulseCount: this.cascadeImpulseCount,
           joinImpactCount: this.joinImpactCount,
           lastBlastPush: Math.round(this.lastBlastPush),
           lastJoinPush: Math.round(this.lastJoinPush),
           totalBackwardPush: Math.round(this.totalBackwardPush),
+          totalForwardPush: Math.round(this.totalForwardPush),
           retreatToEntranceCount: this.retreatToEntranceCount,
         },
         speedMultiplier: Number(this.speedMultiplier.toFixed(2)),
@@ -3245,7 +3422,10 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
         physics: {
           impactCount: this.impactCount,
           lastImpactKnockback: Math.round(this.lastImpactKnockback),
+          lastInsertionPush: Math.round(this.lastInsertionPush),
+          lastImpactDirection: this.lastImpactDirection,
           collisionRecoil: Math.round(this.collisionRecoil),
+          insertionForwardPush: Math.round(this.insertionForwardPush),
         },
         chainPhysics: {
           activeGap: Boolean(this.activeGap),
@@ -3253,11 +3433,13 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
           gapDistance: Math.round(this.activeGap?.gapDistance || 0),
           frontShift: Math.round(this.activeGap?.frontShift || 0),
           frontRollbackSpeed: Math.round(this.frontRollbackSpeed),
+          insertionForwardPush: Math.round(this.insertionForwardPush),
           cascadeImpulseCount: this.cascadeImpulseCount,
           joinImpactCount: this.joinImpactCount,
           lastBlastPush: Math.round(this.lastBlastPush),
           lastJoinPush: Math.round(this.lastJoinPush),
           totalBackwardPush: Math.round(this.totalBackwardPush),
+          totalForwardPush: Math.round(this.totalForwardPush),
           retreatToEntranceCount: this.retreatToEntranceCount,
         },
         chain: {
@@ -3272,6 +3454,8 @@ function makeEngine(scene, level, canvas, onHudChange, options = {}) {
             color: scene.colors[ball.colorIndex],
             x: Math.round(ball.point.x),
             y: Math.round(ball.point.y),
+            textureVariant: ball.textureVariant ?? ballTextureVariant(ball.id, ball.colorIndex),
+            roll: Number((ball.offset / Math.max(1, this.ballRadius * 1.8)).toFixed(2)),
           })),
         },
         shooter: {
@@ -4193,6 +4377,10 @@ function GameScreen({
       engine.forceSpecial(kind);
       return engine.toText();
     };
+    window.debugSetCurrentColor = (colorIndex) => {
+      engine.forceCurrentColor(colorIndex);
+      return engine.toText();
+    };
     window.debugSetTimer = (seconds) => {
       engine.timer = null;
       engine.elapsedTime = Math.max(0, Number(seconds) || 0);
@@ -4210,6 +4398,7 @@ function GameScreen({
       if (window.advanceTime) delete window.advanceTime;
       if (window.render_game_to_text) delete window.render_game_to_text;
       if (window.forceSpecialMarble) delete window.forceSpecialMarble;
+      if (window.debugSetCurrentColor) delete window.debugSetCurrentColor;
       if (window.debugSetTimer) delete window.debugSetTimer;
     };
   }, [scene, level, runKey, language, musicTrack]);
@@ -4316,7 +4505,6 @@ function GameScreen({
 
         <section className="game-stage" aria-label={`${sceneText(scene, language)} playable canvas`}>
           <canvas ref={canvasRef} aria-label="Marble shooter game area" />
-          <div className="tap-hint">{tr(language, "aimHint")}</div>
           <ResultOverlay
             result={result}
             level={level}
