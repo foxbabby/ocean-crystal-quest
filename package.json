@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "vite build",
+    "build": "vite build && node scripts/create-static-worker.mjs",
     "qa:language": "node scripts/language-qa.mjs",
     "qa:onboarding": "node scripts/onboarding-qa.mjs",
     "qa:difficulty": "node scripts/difficulty-physics-qa.mjs",

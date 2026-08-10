@@ -1,29 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ArrowLeft,
-  Bomb,
-  CirclePause,
-  ClipboardList,
-  Coins,
-  Crown,
-  Gem,
-  Home,
-  Lock,
-  Medal,
-  Package,
-  Play,
-  RotateCcw,
-  Settings,
-  ShoppingBag,
-  Snowflake,
-  Sparkles,
-  Star,
-  Trophy,
-  Volume2,
-  VolumeX,
-  X,
-  Zap,
-} from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left.mjs";
+import Bomb from "lucide-react/dist/esm/icons/bomb.mjs";
+import CirclePause from "lucide-react/dist/esm/icons/circle-pause.mjs";
+import ClipboardList from "lucide-react/dist/esm/icons/clipboard-list.mjs";
+import Coins from "lucide-react/dist/esm/icons/coins.mjs";
+import Crown from "lucide-react/dist/esm/icons/crown.mjs";
+import Gem from "lucide-react/dist/esm/icons/gem.mjs";
+import Home from "lucide-react/dist/esm/icons/house.mjs";
+import Lock from "lucide-react/dist/esm/icons/lock.mjs";
+import Medal from "lucide-react/dist/esm/icons/medal.mjs";
+import Package from "lucide-react/dist/esm/icons/package.mjs";
+import Play from "lucide-react/dist/esm/icons/play.mjs";
+import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw.mjs";
+import Settings from "lucide-react/dist/esm/icons/settings.mjs";
+import ShoppingBag from "lucide-react/dist/esm/icons/shopping-bag.mjs";
+import Snowflake from "lucide-react/dist/esm/icons/snowflake.mjs";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles.mjs";
+import Star from "lucide-react/dist/esm/icons/star.mjs";
+import Trophy from "lucide-react/dist/esm/icons/trophy.mjs";
+import Volume2 from "lucide-react/dist/esm/icons/volume-2.mjs";
+import VolumeX from "lucide-react/dist/esm/icons/volume-x.mjs";
+import X from "lucide-react/dist/esm/icons/x.mjs";
+import Zap from "lucide-react/dist/esm/icons/zap.mjs";
 import sceneSelectImage from "./assets/optimized/scene-select.webp";
 import crystalPalaceImage from "./assets/optimized/crystal-palace-preview.webp";
 import abyssalRelicImage from "./assets/optimized/abyssal-relic-preview.webp";
